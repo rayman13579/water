@@ -1,4 +1,9 @@
 #include <Arduino.h>
+#include <WiFi.h>
+#include "AsyncTCP.h"
+#include "ESPAsyncWebServer.h"
+
+AsyncWebServer server(80);
 
 const int muxEnable = 1;
 const int muxOutput = 2;
@@ -21,6 +26,29 @@ const int valve1 = 38;
 const int valve2 = 37;
 const int valve3 = 36;
 const int valve4 = 35;
+
+void startServer() {
+  Serial.println("Connecting to WiFi...");
+  WiFi.mode(WIFI_STA);
+  WiFi.begin("Wokwi-GUEST", "", 6);
+  if (WiFi.waitForConnectResult(5000) != WL_CONNECTED) {
+    Serial.println("WiFi Failed!");
+    exit(1);
+  }
+  Serial.print("Connected! IP address: ");
+  Serial.println(WiFi.localIP());
+
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/plain", "Hello, world");
+  });
+
+  server.onNotFound([](AsyncWebServerRequest *request) {
+    request->send(404, "text/plain", "Not found");
+  });
+
+  server.begin();
+  Serial.println("HTTP server started");
+}
 
 int readFromInput(int input) {
   digitalWrite(mux0, bitRead(input, 0));
@@ -85,17 +113,17 @@ void setup() {
   digitalWrite(valve2, LOW);
   digitalWrite(valve3, LOW);
   digitalWrite(valve4, LOW);
+
+  startServer();
 }
 
 void loop() {
   delay(10); // this speeds up the simulation
 
-  printSensorStats();
+ // printSensorStats();
 
   openValveIfSoilDry(moist1, valve1);
   openValveIfSoilDry(moist2, valve2);
   openValveIfSoilDry(moist3, valve3);
   openValveIfSoilDry(moist4, valve4);
-
-  delay(500);
 }
