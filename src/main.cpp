@@ -28,7 +28,13 @@ const int valve3 = 36;
 const int valve4 = 35;
 
 volatile int flowFrequency1 = 0;
+volatile int flowFrequency2 = 0;
+volatile int flowFrequency3 = 0;
+volatile int flowFrequency4 = 0;
 int flow_l_min_1 = 0;
+int flow_l_min_2 = 0;
+int flow_l_min_3 = 0;
+int flow_l_min_4 = 0;
 unsigned long currentTime;
 unsigned long cloopTime;
 
@@ -36,19 +42,19 @@ AsyncWebServer server(80);
 ESPDash dashboard(server);
 
 
-dash::SeparatorCard separator3(dashboard, "Valve States");
+dash::SeparatorCard separator1(dashboard, "Valve States");
 dash::FeedbackCard valveCard1(dashboard, "Valve 1");
 dash::FeedbackCard valveCard2(dashboard, "Valve 2");
 dash::FeedbackCard valveCard3(dashboard, "Valve 3");
 dash::FeedbackCard valveCard4(dashboard, "Valve 4");
 
-dash::SeparatorCard separator(dashboard, "Soil Moisture");
+dash::SeparatorCard separator2(dashboard, "Soil Moisture");
 dash::HumidityCard<int, 0> moistCard1(dashboard, "Moisture 1");
 dash::HumidityCard<int, 0> moistCard2(dashboard, "Moisture 2");
 dash::HumidityCard<int, 0> moistCard3(dashboard, "Moisture 3");
 dash::HumidityCard<int, 0> moistCard4(dashboard, "Moisture 4");
 
-dash::SeparatorCard separator2(dashboard, "Water Flow");
+dash::SeparatorCard separator3(dashboard, "Water Flow");
 dash::HumidityCard<int, 0> flowCard1(dashboard, "Flow 1", "l/min");
 dash::HumidityCard<int, 0> flowCard2(dashboard, "Flow 2", "l/min");
 dash::HumidityCard<int, 0> flowCard3(dashboard, "Flow 3", "l/min");
@@ -57,7 +63,7 @@ dash::HumidityCard<int, 0> flowCard4(dashboard, "Flow 4", "l/min");
 void startServer() {
   Serial.println("Connecting to WiFi...");
   WiFi.mode(WIFI_STA);
-  WiFi.begin("Wifi", "pw");
+  WiFi.begin("Wifi", "PW");
   if (WiFi.waitForConnectResult(5000) != WL_CONNECTED) {
     Serial.println("WiFi Failed!");
     return;
@@ -79,6 +85,7 @@ void startServer() {
 
 int readMoistValue(int input) {
   int value = analogRead(input);
+  WebSerial.println("Moisture raw value: " + String(value));
   return constrain(map(value, MIN_DRY_VALUE, MAX_DRY_VALUE, 100, 0), 0, 100);
 }
 
@@ -88,26 +95,6 @@ void openValveIfSoilDry(int sensor, int valve) {
   } else {
     digitalWrite(valve, LOW);
   }
-}
-
-void printSensorStats() {
- /* Serial.print(" | ");
-  Serial.print(readFromInput(moist1));
-  Serial.print(" | ");
-  Serial.print(readFromInput(moist2));
-  Serial.print(" | ");
-  Serial.print(readFromInput(moist3));
-  Serial.println();
-  Serial.print("Flow: ");
-  Serial.print(readFromInput(flow1));
-  Serial.print(" | ");
-  Serial.print(readFromInput(flow2));
-  Serial.print(" | ");
-  Serial.print(readFromInput(flow3));
-  Serial.print(" | ");
-  Serial.print(readFromInput(flow4));
-  Serial.println();
-*/
 }
 
 void updateValveState(dash::FeedbackCard<> &valveCard, int valvePin) {
@@ -121,19 +108,19 @@ void updateValveState(dash::FeedbackCard<> &valveCard, int valvePin) {
 
 void updateDashboard() {
   updateValveState(valveCard1, valve1);
-//  updateValveState(valveCard2, valve2);
-//  updateValveState(valveCard3, valve3);
-//  updateValveState(valveCard4, valve4);
+  updateValveState(valveCard2, valve2);
+  updateValveState(valveCard3, valve3);
+  updateValveState(valveCard4, valve4);
 
   moistCard1.setValue(readMoistValue(moist1));
-//  moistCard2.setValue(readMoistValue(moist2));
-//  moistCard3.setValue(readMoistValue(moist3));
-//  moistCard4.setValue(readMoistValue(moist4));
+  moistCard2.setValue(readMoistValue(moist2));
+  moistCard3.setValue(readMoistValue(moist3));
+  moistCard4.setValue(readMoistValue(moist4));
 
   flowCard1.setValue(flow_l_min_1);
-//  flowCard2.setValue(readMoistValue(flow2));
-//  flowCard3.setValue(readMoistValue(flow3));
-//  flowCard4.setValue(readMoistValue(flow4));
+  flowCard2.setValue(flow_l_min_2);
+  flowCard3.setValue(flow_l_min_3);
+  flowCard4.setValue(flow_l_min_4);
 
   dashboard.sendUpdates();
 }
@@ -142,9 +129,22 @@ void flowInterrupt1() {
   flowFrequency1++;
 }
 
+void flowInterrupt2() {
+  flowFrequency2++;
+}
+
+void flowInterrupt3() {
+  flowFrequency3++;
+}
+
+void flowInterrupt4() {
+  flowFrequency4++;
+}
+
 void setup() {
   Serial.begin(9600);
   Serial.println("Hello, ESP32-S3!");
+
   pinMode(moist1, INPUT);
   pinMode(moist2, INPUT);
   pinMode(moist3, INPUT); 
@@ -161,7 +161,13 @@ void setup() {
   pinMode(valve4, OUTPUT);
 
   digitalWrite(flow1, HIGH);
+  digitalWrite(flow2, HIGH);
+  digitalWrite(flow3, HIGH);
+  digitalWrite(flow4, HIGH);
   attachInterrupt(flow1, flowInterrupt1, RISING);
+//  attachInterrupt(flow2, flowInterrupt2, RISING);
+//  attachInterrupt(flow3, flowInterrupt3, RISING);
+//  attachInterrupt(flow4, flowInterrupt4, RISING);
 
   digitalWrite(valve1, LOW);
   digitalWrite(valve2, LOW);
@@ -178,27 +184,35 @@ void setup() {
 }
 
 void loop() {
-  delay(250);
+  delay(500);
   ElegantOTA.loop();
   WebSerial.loop();
-
+/*
   currentTime = millis();
   if (currentTime >= (cloopTime + 1000)) {
     cloopTime = currentTime;
     flow_l_min_1 = flowFrequency1 / 7.5;
-    WebSerial.print("Flow 1 frequency: ");
+    flow_l_min_2 = flowFrequency2 / 7.5;
+    flow_l_min_3 = flowFrequency3 / 7.5;
+    flow_l_min_4 = flowFrequency4 / 7.5;
+    WebSerial.print("Flow frequencies: ");
     WebSerial.print(flowFrequency1);
-    WebSerial.print(" | l/min: ");
-    WebSerial.println(flow_l_min_1);
+    WebSerial.print(" | ");
+    WebSerial.print(flowFrequency2);
+    WebSerial.print(" | ");
+    WebSerial.print(flowFrequency3);
+    WebSerial.print(" | ");
+    WebSerial.println(flowFrequency4);
     flowFrequency1 = 0;
+    flowFrequency2 = 0;
+    flowFrequency3 = 0;
+    flowFrequency4 = 0;
   }
-
-  printSensorStats();
-
+*/
   openValveIfSoilDry(moist1, valve1);
-//  openValveIfSoilDry(moist2, valve2);
-//  openValveIfSoilDry(moist3, valve3);
-//  openValveIfSoilDry(moist4, valve4);
+  openValveIfSoilDry(moist2, valve2);
+  openValveIfSoilDry(moist3, valve3);
+  openValveIfSoilDry(moist4, valve4);
 
   updateDashboard();
 }
