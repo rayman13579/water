@@ -17,15 +17,15 @@ const int moist2 = 5;
 const int moist3 = 6;
 const int moist4 = 7;
 
-const int flow1 = 10;
-const int flow2 = 9;
-const int flow3 = 3;
-const int flow4 = 8;
+const int flow1 = 15;
+const int flow2 = 16;
+const int flow3 = 17;
+const int flow4 = 18;
 
-const int valve1 = 38;
-const int valve2 = 37;
-const int valve3 = 36;
-const int valve4 = 35;
+const int valve1 = 37;
+const int valve2 = 36;
+const int valve3 = 35;
+const int valve4 = 0;
 
 volatile int flowFrequency1 = 0;
 volatile int flowFrequency2 = 0;
@@ -63,7 +63,7 @@ dash::HumidityCard<int, 0> flowCard4(dashboard, "Flow 4", "l/min");
 void startServer() {
   Serial.println("Connecting to WiFi...");
   WiFi.mode(WIFI_STA);
-  WiFi.begin("Wifi", "PW");
+  WiFi.begin("Wifi", "VeryFastWowy");
   if (WiFi.waitForConnectResult(5000) != WL_CONNECTED) {
     Serial.println("WiFi Failed!");
     return;
@@ -85,7 +85,6 @@ void startServer() {
 
 int readMoistValue(int input) {
   int value = analogRead(input);
-  WebSerial.println("Moisture raw value: " + String(value));
   return constrain(map(value, MIN_DRY_VALUE, MAX_DRY_VALUE, 100, 0), 0, 100);
 }
 
@@ -165,9 +164,9 @@ void setup() {
   digitalWrite(flow3, HIGH);
   digitalWrite(flow4, HIGH);
   attachInterrupt(flow1, flowInterrupt1, RISING);
-//  attachInterrupt(flow2, flowInterrupt2, RISING);
-//  attachInterrupt(flow3, flowInterrupt3, RISING);
-//  attachInterrupt(flow4, flowInterrupt4, RISING);
+  attachInterrupt(flow2, flowInterrupt2, RISING);
+  attachInterrupt(flow3, flowInterrupt3, RISING);
+  attachInterrupt(flow4, flowInterrupt4, RISING);
 
   digitalWrite(valve1, LOW);
   digitalWrite(valve2, LOW);
@@ -187,7 +186,7 @@ void loop() {
   delay(500);
   ElegantOTA.loop();
   WebSerial.loop();
-/*
+
   currentTime = millis();
   if (currentTime >= (cloopTime + 1000)) {
     cloopTime = currentTime;
@@ -208,7 +207,7 @@ void loop() {
     flowFrequency3 = 0;
     flowFrequency4 = 0;
   }
-*/
+
   openValveIfSoilDry(moist1, valve1);
   openValveIfSoilDry(moist2, valve2);
   openValveIfSoilDry(moist3, valve3);
