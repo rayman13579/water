@@ -17,15 +17,15 @@ const int moist2 = 5;
 const int moist3 = 6;
 const int moist4 = 7;
 
-const int flow1 = 15;
-const int flow2 = 16;
-const int flow3 = 17;
-const int flow4 = 18;
+const int flow1 = 11;
+const int flow2 = 12;
+const int flow3 = 14;
+const int flow4 = 13;
 
-const int valve1 = 37;
-const int valve2 = 36;
-const int valve3 = 35;
-const int valve4 = 0;
+const int valve1 = 16;
+const int valve2 = 18;
+const int valve3 = 15;
+const int valve4 = 17;
 
 volatile int flowFrequency1 = 0;
 volatile int flowFrequency2 = 0;
