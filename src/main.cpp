@@ -2,12 +2,11 @@
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include <ESPDash.h>
-#include <ElegantOTA.h>
-#include <WebSerial.h>
+#include <ESPDashboardPlus.h>
+#include "dashboard_html.h"
+#include <Ticker.h>
 
-
-//ADC2 can not be used when WiFi enabled
+// ADC2 can not be used when WiFi enabled
 
 const int MAX_DRY_VALUE = 3333;
 const int MIN_DRY_VALUE = 1140;
@@ -38,115 +37,164 @@ int flow_l_min_4 = 0;
 unsigned long currentTime;
 unsigned long cloopTime;
 
+Ticker flowCalculationTicker;
+Ticker moistureChartTicker;
+
 AsyncWebServer server(80);
-ESPDash dashboard(server);
+ESPDashboardPlus dashboard("Water");
 
-
-dash::SeparatorCard separator1(dashboard, "Valve States");
-dash::FeedbackCard valveCard1(dashboard, "Valve 1");
-dash::FeedbackCard valveCard2(dashboard, "Valve 2");
-dash::FeedbackCard valveCard3(dashboard, "Valve 3");
-dash::FeedbackCard valveCard4(dashboard, "Valve 4");
-
-dash::SeparatorCard separator2(dashboard, "Soil Moisture");
-dash::HumidityCard<int, 0> moistCard1(dashboard, "Moisture 1");
-dash::HumidityCard<int, 0> moistCard2(dashboard, "Moisture 2");
-dash::HumidityCard<int, 0> moistCard3(dashboard, "Moisture 3");
-dash::HumidityCard<int, 0> moistCard4(dashboard, "Moisture 4");
-
-dash::SeparatorCard separator3(dashboard, "Water Flow");
-dash::HumidityCard<int, 0> flowCard1(dashboard, "Flow 1", "l/min");
-dash::HumidityCard<int, 0> flowCard2(dashboard, "Flow 2", "l/min");
-dash::HumidityCard<int, 0> flowCard3(dashboard, "Flow 3", "l/min");
-dash::HumidityCard<int, 0> flowCard4(dashboard, "Flow 4", "l/min");
-
-void startServer() {
+void startServer()
+{
   Serial.println("Connecting to WiFi...");
   WiFi.mode(WIFI_STA);
   WiFi.begin("Wifi", "VeryFastWowy");
-  if (WiFi.waitForConnectResult(5000) != WL_CONNECTED) {
+  if (WiFi.waitForConnectResult(5000) != WL_CONNECTED)
+  {
     Serial.println("WiFi Failed!");
     return;
   }
   Serial.print("Connected! IP address: ");
   Serial.println(WiFi.localIP());
 
-  server.on("/test", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(200, "text/plain", "Hello, world");
-  });
+  server.on("/test", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->send(200, "text/plain", "Hello, world"); });
 
-  server.onNotFound([](AsyncWebServerRequest *request) {
-    request->send(404, "text/plain", "Not found");
-  });
+  server.onNotFound([](AsyncWebServerRequest *request)
+                    { request->send(404, "text/plain", "Not found"); });
+  dashboard.begin(&server, DASHBOARD_HTML_DATA, DASHBOARD_HTML_SIZE, true, true);
+
+  dashboard.addStatusCard("valve1", "Valve 1", StatusIcon::POWER);
+  dashboard.addStatusCard("valve2", "Valve 2", StatusIcon::POWER);
+  dashboard.addStatusCard("valve3", "Valve 3", StatusIcon::POWER);
+  dashboard.addStatusCard("valve4", "Valve 4", StatusIcon::POWER);
+
+  ChartCard* moistChart = dashboard.addChartCard("moistChart", "Moisture History", ChartType::LINE, 15);
+  moistChart->setSize(4, 1);
+  moistChart->addSeries("Moisture 1", "#3700ffff");
+  moistChart->addSeries("Moisture 2", "#00FF00");
+  moistChart->addSeries("Moisture 3", "#FFFF00");
+  moistChart->addSeries("Moisture 4", "#FF0000");
+
+  dashboard.addStatCard("moist1", "Moisture 1", "%");
+  dashboard.addStatCard("moist2", "Moisture 2", "%");
+  dashboard.addStatCard("moist3", "Moisture 3", "%");
+  dashboard.addStatCard("moist4", "Moisture 4", "%");
+
+  dashboard.addStatCard("flow1", "Flow 1", "l/min");
+  dashboard.addStatCard("flow2", "Flow 2", "l/min");
+  dashboard.addStatCard("flow3", "Flow 3", "l/min");
+  dashboard.addStatCard("flow4", "Flow 4", "l/min");
+
+  dashboard.addGroup("valve", "Valve States", {"valve1", "valve2", "valve3", "valve4"});
+  dashboard.addGroup("moisture", "Soil Moisture", {"moistChart", "moist1", "moist2", "moist3", "moist4"});
+  dashboard.addGroup("flow", "Water Flow", {"flow1", "flow2", "flow3", "flow4"});
 
   server.begin();
   Serial.println("HTTP server started");
 }
 
-int readMoistValue(int input) {
+int readMoistValue(int input)
+{
   int value = analogRead(input);
   return constrain(map(value, MIN_DRY_VALUE, MAX_DRY_VALUE, 100, 0), 0, 100);
 }
 
-void openValveIfSoilDry(int sensor, int valve) {
-  if (readMoistValue(sensor) < 50) {
+void openValveIfSoilDry(int sensor, int valve)
+{
+  if (readMoistValue(sensor) < 50)
+  {
     digitalWrite(valve, HIGH);
-  } else {
+  }
+  else
+  {
     digitalWrite(valve, LOW);
   }
 }
 
-void updateValveState(dash::FeedbackCard<> &valveCard, int valvePin) {
-  if (digitalRead(valvePin)) {
-    valveCard.setFeedback("Open", dash::Status::SUCCESS);
-  } else {
-    valveCard.setFeedback("Closed", dash::Status::NONE);
+void updateValveState(int valvePin, String valveCard)
+{
+  if (digitalRead(valvePin))
+  {
+    dashboard.updateStatusCard(valveCard, StatusIcon::POWER, CardVariant::INFO, "Open", "");
   }
-
+  else
+  {
+    dashboard.updateStatusCard(valveCard, StatusIcon::POWER, CardVariant::SECONDARY, "Closed", "");
+  }
 }
 
-void updateDashboard() {
-  updateValveState(valveCard1, valve1);
-  updateValveState(valveCard2, valve2);
-  updateValveState(valveCard3, valve3);
-  updateValveState(valveCard4, valve4);
+void updateDashboard()
+{
+  updateValveState(valve1, "valve1");
+  updateValveState(valve2, "valve2");
+  updateValveState(valve3, "valve3");
+  updateValveState(valve4, "valve4");
 
-  moistCard1.setValue(readMoistValue(moist1));
-  moistCard2.setValue(readMoistValue(moist2));
-  moistCard3.setValue(readMoistValue(moist3));
-  moistCard4.setValue(readMoistValue(moist4));
+  dashboard.updateStatCard("moist1", String(readMoistValue(moist1)));
+  dashboard.updateStatCard("moist2", String(readMoistValue(moist2)));
+  dashboard.updateStatCard("moist3", String(readMoistValue(moist3)));
+  dashboard.updateStatCard("moist4", String(readMoistValue(moist4)));
 
-  flowCard1.setValue(flow_l_min_1);
-  flowCard2.setValue(flow_l_min_2);
-  flowCard3.setValue(flow_l_min_3);
-  flowCard4.setValue(flow_l_min_4);
-
-  dashboard.sendUpdates();
+  dashboard.updateStatCard("flow1", String(flow_l_min_1));
+  dashboard.updateStatCard("flow2", String(flow_l_min_2));
+  dashboard.updateStatCard("flow3", String(flow_l_min_3));
+  dashboard.updateStatCard("flow4", String(flow_l_min_4));
 }
 
-void flowInterrupt1() {
-  flowFrequency1++;
+void IRAM_ATTR flowInterrupt1()
+{
+  flowFrequency1 = flowFrequency1 + 1;
 }
 
-void flowInterrupt2() {
-  flowFrequency2++;
+void IRAM_ATTR flowInterrupt2()
+{
+  flowFrequency2 = flowFrequency2 + 1;
 }
 
-void flowInterrupt3() {
-  flowFrequency3++;
+void IRAM_ATTR flowInterrupt3()
+{
+  flowFrequency3 = flowFrequency3 + 1;
 }
 
-void flowInterrupt4() {
-  flowFrequency4++;
+void IRAM_ATTR flowInterrupt4()
+{
+  flowFrequency4 = flowFrequency4 + 1;
 }
 
-void setup() {
+void calculateFlow() {
+    flow_l_min_1 = flowFrequency1 / 7.5;
+    flow_l_min_2 = flowFrequency2 / 7.5;
+    flow_l_min_3 = flowFrequency3 / 7.5;
+    flow_l_min_4 = flowFrequency4 / 7.5;
+    dashboard.logInfo("Flow frequencies: " + String(flow_l_min_1) + " | " + String(flow_l_min_2) + " | " + String(flow_l_min_3) + " | " + String(flow_l_min_4));
+    flowFrequency1 = 0;
+    flowFrequency2 = 0;
+    flowFrequency3 = 0;
+    flowFrequency4 = 0;
+
+    openValveIfSoilDry(moist1, valve1);
+    openValveIfSoilDry(moist2, valve2);
+    openValveIfSoilDry(moist3, valve3);
+    openValveIfSoilDry(moist4, valve4);
+
+    updateDashboard();
+}
+
+void updateMoistureCharts() {
+    dashboard.updateChartCard("moistChart", 0, readMoistValue(moist1));
+    dashboard.updateChartCard("moistChart", 1, readMoistValue(moist2));
+    dashboard.updateChartCard("moistChart", 2, readMoistValue(moist3));
+    dashboard.updateChartCard("moistChart", 3, readMoistValue(moist4));
+}
+
+void setup()
+{
   Serial.begin(9600);
   Serial.println("Hello, ESP32-S3!");
 
   pinMode(moist1, INPUT);
   pinMode(moist2, INPUT);
-  pinMode(moist3, INPUT); 
+  pinMode(moist3, INPUT);
   pinMode(moist4, INPUT);
 
   pinMode(flow1, INPUT);
@@ -174,44 +222,15 @@ void setup() {
   digitalWrite(valve4, LOW);
 
   startServer();
-  ElegantOTA.begin(&server);
-  WebSerial.begin(&server);
-  
+
+  flowCalculationTicker.attach(10, calculateFlow);
+  moistureChartTicker.attach(6000, updateMoistureCharts);
+
   sei();
-  currentTime = millis();
-  cloopTime = millis();
 }
 
-void loop() {
-  delay(500);
-  ElegantOTA.loop();
-  WebSerial.loop();
-
-  currentTime = millis();
-  if (currentTime >= (cloopTime + 1000)) {
-    cloopTime = currentTime;
-    flow_l_min_1 = flowFrequency1 / 7.5;
-    flow_l_min_2 = flowFrequency2 / 7.5;
-    flow_l_min_3 = flowFrequency3 / 7.5;
-    flow_l_min_4 = flowFrequency4 / 7.5;
-    WebSerial.print("Flow frequencies: ");
-    WebSerial.print(flowFrequency1);
-    WebSerial.print(" | ");
-    WebSerial.print(flowFrequency2);
-    WebSerial.print(" | ");
-    WebSerial.print(flowFrequency3);
-    WebSerial.print(" | ");
-    WebSerial.println(flowFrequency4);
-    flowFrequency1 = 0;
-    flowFrequency2 = 0;
-    flowFrequency3 = 0;
-    flowFrequency4 = 0;
-  }
-
-  openValveIfSoilDry(moist1, valve1);
-  openValveIfSoilDry(moist2, valve2);
-  openValveIfSoilDry(moist3, valve3);
-  openValveIfSoilDry(moist4, valve4);
-
-  updateDashboard();
+void loop()
+{
+  dashboard.loop();
+  delay(3000);
 }
