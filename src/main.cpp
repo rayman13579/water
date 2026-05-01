@@ -68,12 +68,18 @@ void startServer()
   dashboard.addStatusCard("valve3", "Valve 3", StatusIcon::POWER);
   dashboard.addStatusCard("valve4", "Valve 4", StatusIcon::POWER);
 
-  ChartCard* moistChart = dashboard.addChartCard("moistChart", "Moisture History", ChartType::LINE, 15);
-  moistChart->setSize(4, 1);
-  moistChart->addSeries("Moisture 1", "#3700ffff");
-  moistChart->addSeries("Moisture 2", "#00FF00");
-  moistChart->addSeries("Moisture 3", "#FFFF00");
-  moistChart->addSeries("Moisture 4", "#FF0000");
+  ChartCard *moistChart1 = dashboard.addChartCard("moistChart1", "Moisture History", ChartType::LINE, 100);
+  moistChart1->setSize(1, 1);
+  ChartCard *moistChart2 = dashboard.addChartCard("moistChart2", "Moisture History", ChartType::LINE, 100);
+  moistChart2->setSize(1, 1);
+  ChartCard *moistChart3 = dashboard.addChartCard("moistChart3", "Moisture History", ChartType::LINE, 100);
+  moistChart3->setSize(1, 1);
+  ChartCard *moistChart4 = dashboard.addChartCard("moistChart4", "Moisture History", ChartType::LINE, 100);
+  moistChart4->setSize(1, 1);
+  //  moistChart->addSeries("Moisture 1", "#3700ffff");
+  //  moistChart->addSeries("Moisture 2", "#00FF00");
+  //  moistChart->addSeries("Moisture 3", "#FFFF00");
+  //  moistChart->addSeries("Moisture 4", "#FF0000");
 
   dashboard.addStatCard("moist1", "Moisture 1", "%");
   dashboard.addStatCard("moist2", "Moisture 2", "%");
@@ -86,7 +92,8 @@ void startServer()
   dashboard.addStatCard("flow4", "Flow 4", "l/min");
 
   dashboard.addGroup("valve", "Valve States", {"valve1", "valve2", "valve3", "valve4"});
-  dashboard.addGroup("moisture", "Soil Moisture", {"moistChart", "moist1", "moist2", "moist3", "moist4"});
+  dashboard.addGroup("moistureChart", "Soil Moisture", {"moistChart1", "moistChart2", "moistChart3", "moistChart4"});
+  dashboard.addGroup("moisture", "Soil Moisture", {"moist1", "moist2", "moist3", "moist4"});
   dashboard.addGroup("flow", "Water Flow", {"flow1", "flow2", "flow3", "flow4"});
 
   server.begin();
@@ -161,30 +168,32 @@ void IRAM_ATTR flowInterrupt4()
   flowFrequency4 = flowFrequency4 + 1;
 }
 
-void calculateFlow() {
-    flow_l_min_1 = flowFrequency1 / 7.5;
-    flow_l_min_2 = flowFrequency2 / 7.5;
-    flow_l_min_3 = flowFrequency3 / 7.5;
-    flow_l_min_4 = flowFrequency4 / 7.5;
-    dashboard.logInfo("Flow frequencies: " + String(flow_l_min_1) + " | " + String(flow_l_min_2) + " | " + String(flow_l_min_3) + " | " + String(flow_l_min_4));
-    flowFrequency1 = 0;
-    flowFrequency2 = 0;
-    flowFrequency3 = 0;
-    flowFrequency4 = 0;
+void calculateFlow()
+{
+  flow_l_min_1 = flowFrequency1 / 7.5;
+  flow_l_min_2 = flowFrequency2 / 7.5;
+  flow_l_min_3 = flowFrequency3 / 7.5;
+  flow_l_min_4 = flowFrequency4 / 7.5;
+  dashboard.logInfo("Flow frequencies: " + String(flow_l_min_1) + " | " + String(flow_l_min_2) + " | " + String(flow_l_min_3) + " | " + String(flow_l_min_4));
+  flowFrequency1 = 0;
+  flowFrequency2 = 0;
+  flowFrequency3 = 0;
+  flowFrequency4 = 0;
 
-    openValveIfSoilDry(moist1, valve1);
-    openValveIfSoilDry(moist2, valve2);
-    openValveIfSoilDry(moist3, valve3);
-    openValveIfSoilDry(moist4, valve4);
+  openValveIfSoilDry(moist1, valve1);
+  openValveIfSoilDry(moist2, valve2);
+  openValveIfSoilDry(moist3, valve3);
+  openValveIfSoilDry(moist4, valve4);
 
-    updateDashboard();
+  updateDashboard();
 }
 
-void updateMoistureCharts() {
-    dashboard.updateChartCard("moistChart", 0, readMoistValue(moist1));
-    dashboard.updateChartCard("moistChart", 1, readMoistValue(moist2));
-    dashboard.updateChartCard("moistChart", 2, readMoistValue(moist3));
-    dashboard.updateChartCard("moistChart", 3, readMoistValue(moist4));
+void updateMoistureCharts()
+{
+  dashboard.updateChartCard("moistChart1", readMoistValue(moist1));
+  dashboard.updateChartCard("moistChart2", readMoistValue(moist2));
+  dashboard.updateChartCard("moistChart3", readMoistValue(moist3));
+  dashboard.updateChartCard("moistChart4", readMoistValue(moist4));
 }
 
 void setup()
@@ -224,7 +233,7 @@ void setup()
   startServer();
 
   flowCalculationTicker.attach(10, calculateFlow);
-  moistureChartTicker.attach(6000, updateMoistureCharts);
+  moistureChartTicker.attach(3600, updateMoistureCharts);
 
   sei();
 }
@@ -232,5 +241,5 @@ void setup()
 void loop()
 {
   dashboard.loop();
-  delay(3000);
+  delay(10);
 }
