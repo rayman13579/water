@@ -63,6 +63,10 @@ void startServer()
                     { request->send(404, "text/plain", "Not found"); });
   dashboard.begin(&server, DASHBOARD_HTML_DATA, DASHBOARD_HTML_SIZE, true, true);
 
+  dashboard.addActionButton("restart", "Restart", "Restart", "Restart?", "Restart?", []() {
+    ESP.restart();
+  });
+
   dashboard.addStatusCard("valve1", "Valve 1", StatusIcon::POWER);
   dashboard.addStatusCard("valve2", "Valve 2", StatusIcon::POWER);
   dashboard.addStatusCard("valve3", "Valve 3", StatusIcon::POWER);
@@ -91,6 +95,7 @@ void startServer()
   dashboard.addStatCard("flow3", "Flow 3", "l/min");
   dashboard.addStatCard("flow4", "Flow 4", "l/min");
 
+  dashboard.addGroup("stuff", "Stuff", {"restart"});
   dashboard.addGroup("valve", "Valve States", {"valve1", "valve2", "valve3", "valve4"});
   dashboard.addGroup("moistureChart", "Soil Moisture", {"moistChart1", "moistChart2", "moistChart3", "moistChart4"});
   dashboard.addGroup("moisture", "Soil Moisture", {"moist1", "moist2", "moist3", "moist4"});
@@ -234,6 +239,8 @@ void setup()
 
   flowCalculationTicker.attach(10, calculateFlow);
   moistureChartTicker.attach(3600, updateMoistureCharts);
+  calculateFlow();
+  updateMoistureCharts();
 
   sei();
 }
