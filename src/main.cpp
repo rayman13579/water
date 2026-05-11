@@ -141,31 +141,52 @@ void setupDashboard()
   valveDropdown->onChange = [](const String &value)
   {
     selectedValve = value.toInt();
-    dashboard.updateButtonCard("doWater", "water valve " + String(selectedValve + 1) + " for " + String(wateringDuration) + " seconds");
+    dashboard.updateButtonCard("doWater", "open valve " + String(selectedValve + 1) + " for " + String(wateringDuration) + " seconds");
   };
   valveDropdown->setValue("0");
-  SliderCard *durationSlider = dashboard.addSliderCard("durationSlider", "Watering Duration", 1, 60, 1, "sec");
+  SliderCard *durationSlider = dashboard.addSliderCard("durationSlider", "Watering Duration", 1, 10, 1, "sec");
   durationSlider->onChange = [](int value)
   { 
     wateringDuration = value;
-    dashboard.updateButtonCard("doWater", "water valve " + String(selectedValve + 1) + " for " + String(wateringDuration) + " seconds");
+    dashboard.updateButtonCard("doWater", "open valve " + String(selectedValve + 1) + " for " + String(wateringDuration) + " seconds");
   };
-  dashboard.addButtonCard("doWater", "Water", "water valve 1 for 1 seconds", true, []
+  dashboard.addButtonCard("doWater", "Water", "open valve 1 for 1 seconds", true, []
   {
     dashboard.updateButtonCard("doWater", false);
     wateringEndTime = millis() + wateringDuration * 1000;
     doWatering = true;
     digitalWrite(valves[selectedValve], HIGH);
   });
-  dashboard.addActionButton("restart", "Restart", "Restart", "Restart?", "Restart?", []()
+  ActionButton *restartButton = dashboard.addActionButton("restart", "Restart", "Restart", "Restart?", "", []()
   { 
     ESP.restart();
   });
+  restartButton->setVariant(CardVariant::DANGER);
 
-  dashboard.addStatusCard("valve1", "Valve 1", StatusIcon::POWER);
-  dashboard.addStatusCard("valve2", "Valve 2", StatusIcon::POWER);
-  dashboard.addStatusCard("valve3", "Valve 3", StatusIcon::POWER);
-  dashboard.addStatusCard("valve4", "Valve 4", StatusIcon::POWER);
+  StatusToggleCard *valveToggle1 = dashboard.addStatusToggleCard("valve1", "Valve 1", "Open", "Closed", StatusIcon::RAIN, StatusIcon::CLOUD, false);
+  valveToggle1->setVariant(CardVariant::INFO);
+  valveToggle1->onChange = [](bool value)
+  {
+    digitalWrite(valve1, value ? HIGH : LOW);
+  };
+  StatusToggleCard *valveToggle2 = dashboard.addStatusToggleCard("valve2", "Valve 2", "Open", "Closed", StatusIcon::RAIN, StatusIcon::CLOUD, false);
+  valveToggle2->setVariant(CardVariant::INFO);
+  valveToggle2->onChange = [](bool value)
+  {
+    digitalWrite(valve2, value ? HIGH : LOW);
+  };
+  StatusToggleCard *valveToggle3 = dashboard.addStatusToggleCard("valve3", "Valve 3", "Open", "Closed", StatusIcon::RAIN, StatusIcon::CLOUD, false);
+  valveToggle3->setVariant(CardVariant::INFO);
+  valveToggle3->onChange = [](bool value)
+  {
+    digitalWrite(valve3, value ? HIGH : LOW);
+  };
+  StatusToggleCard *valveToggle4 = dashboard.addStatusToggleCard("valve4", "Valve 4", "Open", "Closed", StatusIcon::RAIN, StatusIcon::CLOUD, false);
+  valveToggle4->setVariant(CardVariant::INFO);
+  valveToggle4->onChange = [](bool value)
+  {
+    digitalWrite(valve4, value ? HIGH : LOW);
+  };
 
   ChartCard *moistChart1 = dashboard.addChartCard("moistChart1", "Moisture 1", "%", ChartType::LINE, 48);
   moistChart1->setSize(2, 1);
@@ -226,14 +247,7 @@ void openValveIfSoilDry(int sensor, int valve)
 
 void updateValveState(int valvePin, String valveCard)
 {
-  if (digitalRead(valvePin))
-  {
-    dashboard.updateStatusCard(valveCard, StatusIcon::POWER, CardVariant::INFO, "Open", "");
-  }
-  else
-  {
-    dashboard.updateStatusCard(valveCard, StatusIcon::POWER, CardVariant::SECONDARY, "Closed", "");
-  }
+    dashboard.updateStatusToggleCard(valveCard, digitalRead(valvePin));
 }
 
 void updateDashboard()
@@ -276,7 +290,7 @@ void setup()
   setupDashboard();
 
   flowCalculationTicker.attach_ms(250, flowCalculationTickerCallback);
-  moistureChartTicker.attach(10, moistureChartTickerCallback);
+  moistureChartTicker.attach(3600, moistureChartTickerCallback);
   calculateFlow();
   updateMoistureCharts();
   dashboard.updateDropdownCard("valveDropdown", "0");
@@ -312,5 +326,5 @@ void loop()
     doWatering = false;
   }
 
-  delay(150);
+  delay(50);
 }
